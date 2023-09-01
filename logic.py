@@ -5,7 +5,7 @@ import sys
 from typing import Optional
 
 
-class SaveHelper:
+class Logic:
 
     def __init__(self, name_format, target_dir_path, backup_dir_path):
         self.__name_format = name_format
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     dir_path = r'C:\Users\Jihun Shim\PycharmProjects\saveHelper\test\save'
     file = '.+[.]txt'
     backup_path = os.path.join(dir_path, 'backup')
-    helper = SaveHelper(file, dir_path, backup_path)
+    helper = Logic(file, dir_path, backup_path)
     while True:
         val = _test(helper.load_backup_directories())
         if val == 1:

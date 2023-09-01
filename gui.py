@@ -3,13 +3,21 @@ import tkinter.ttk as ttk
 from tkinter.font import Font
 import tkinter.filedialog as fd
 import os
-import saveHelper
+import logic
 from typing import Optional
 import tkinter.messagebox as msgbox
 from PIL import Image, ImageTk
-import icon
 import shutil
 
+program_title = "Save My Save"
+target_options = {
+            "sav 문자열 포함": ".*sav.*",
+            "*.rpgsave": ".*[.]rpgsave$",
+            "*.rvdata": ".*[.]rvdata$",
+            "*.rvdata2": ".*[.]rvdata2$",
+            "모든 파일": ".*",
+            "확장자 직접 입력...": None
+        }
 
 class Gui:
     def _make_top_frame(self):
@@ -41,7 +49,6 @@ class Gui:
         tk.Button(
             top_frame, text="찾아보기...", font=Font(family='돋움', size=9), command=self.controller.set_backup_directory
         ).grid(row=1, column=2, padx=3, pady=padding)
-
 
     def _do_popup(self, event=None):
         self.controller.auto_refresh()
@@ -92,13 +99,13 @@ class Gui:
 
         tk.Frame(right_frame, height=7).grid(row=2, column=0)
         mini_frame = tk.Frame(right_frame)
-        mini_frame.grid(row=3,column=0,sticky='ew')
-        font=Font(family='돋움', size=9)
+        mini_frame.grid(row=3, column=0, sticky='ew')
+        font = Font(family='돋움', size=9)
         self.which_file_button = tk.Button(
             mini_frame, text='파일 확인', command=self.controller.show_target_files, bg='#cc6', font=font
         )
         self.which_file_button.grid(row=3, column=0, sticky='w')
-        tk.Frame(mini_frame, width=2).grid(row=3,column=1)
+        tk.Frame(mini_frame, width=2).grid(row=3, column=1)
         self.which_file_button = tk.Button(
             mini_frame, text='폴더 열기', command=self.controller.open_dir, bg='#99f', font=font
         )
@@ -120,31 +127,12 @@ class Gui:
         self.mf.deiconify()
         return res
 
-    def _wx2pil(self, wx_image):
-        image = wx_image.Image
-
-        w, h = image.GetWidth(), image.GetHeight()
-        data = image.GetData()
-
-        img = Image.frombytes('RGB', (w, h), bytes(data))
-        rgba = img.convert("RGBA")
-        datas = rgba.getdata()
-        newData = []
-        for item in datas:
-            if item[0] == 0 and item[1] == 0 and item[2] == 0:  # finding black colour by its RGB value
-                # storing a transparent value when we find a black colour
-                newData.append((255, 255, 255, 0))
-            else:
-                newData.append(item)  # other colours remain unchanged
-        rgba.putdata(newData)
-        return ImageTk.PhotoImage(rgba)
-
     def __init__(self):
         self.mf = tk.Tk()
-        self.mf.title("백업기")
+        self.mf.title(program_title)
         self.mf.focus()
-        self.icon = self._wx2pil(icon.ico)
-        self.mf.iconphoto(False, self.icon)
+        self.icon = "icon.ico"
+        self.mf.iconbitmap(self.icon)
         self.mf.geometry(
             "310x257+{}+{}".format(self.mf.winfo_screenwidth() // 2 - 155, self.mf.winfo_screenheight() // 2 - 160))
         self.mf.resizable(0, 0)
@@ -157,7 +145,7 @@ class Gui:
     def _list_window(self, list, title: Optional[str] = None, message: Optional[str] = None):
         self.subwindow = tk.Toplevel(self.mf)
         self.subwindow.resizable(0, 0)
-        self.subwindow.iconphoto(False, self.icon)
+        self.subwindow.iconbitmap(self.icon)
         self.subwindow.grab_set()
         self.subwindow.focus()
         if title:
@@ -224,7 +212,7 @@ class Gui:
 
     def ask_rollback(self, title: Optional[str], src, dst, backup_version_name):
         self.subwindow = tk.Toplevel(self.mf)
-        self.subwindow.iconphoto(False, self.icon)
+        self.subwindow.iconbitmap(self.icon)
         self.subwindow.grab_set()
         self.subwindow.focus()
 
@@ -272,7 +260,7 @@ class Gui:
 
     def show_extension_entry(self):
         self.subwindow = tk.Toplevel(self.mf)
-        self.subwindow.iconphoto(False, self.icon)
+        self.subwindow.iconbitmap(self.icon)
         self.subwindow.grab_set()
         self.subwindow.focus()
         self.subwindow.title("확장자 직접 입력")
@@ -297,7 +285,7 @@ class Gui:
             button_frame, text='확인', width=8, bg='#fcc', command=lambda: ok(self)
         ).pack(side='left', anchor='e', padx=4)
         tk.Button(
-            button_frame, text='취소', width=8, command=lambda : window_exit(self)
+            button_frame, text='취소', width=8, command=lambda: window_exit(self)
         ).pack(side='right', anchor='w', padx=4)
         self.subwindow.bind('<Return>', lambda event=None: ok(self))
         self.subwindow.bind('<Escape>', lambda event=None: window_exit(self))
@@ -306,9 +294,6 @@ class Gui:
         w, h = self.subwindow.winfo_width(), self.subwindow.winfo_height()
         self.subwindow.geometry("{}x{}+{}+{}".format(w, h, self.mf.winfo_x() + 40, self.mf.winfo_y() + 80))
         self.subwindow.mainloop()
-
-
-
 
     def renew_backup_directory_list(self, dir_list):
         self.dir_list = dir_list
@@ -329,15 +314,8 @@ class Gui:
 class Contorller:
     def __init__(self, gui: Gui):
         self.gui = gui
-        self.helper = None
-        self.target_options = {
-            "*.rpgsave": ".*[.]rpgsave$",
-            "*.rvdata": ".*[.]rvdata$",
-            "*.rvdata2": ".*[.]rvdata2$",
-            "sav 문자열 포함": ".*sav.*",
-            "모든 파일": ".*",
-            "확장자 직접 입력...": None
-        }
+        self.logic = None
+        self.target_options = target_options
 
     def insert_target_option_combobox_list(self):
         self.gui.set_target_option_combobox_list(list(self.target_options.keys()))
@@ -354,13 +332,13 @@ class Contorller:
             self.gui.backup_dir_entry.xview_moveto(1)
         backup_directory = self.gui.backup_path_var.get()
 
-        self.helper = saveHelper.SaveHelper(
+        self.logic = logic.Logic(
             name_format=self.target_options[self.gui.target_option_combobox.get()],
             target_dir_path=target_directory,
             backup_dir_path=backup_directory
         )
 
-        self.gui.renew_backup_directory_list(self.helper.load_backup_directories())
+        self.gui.renew_backup_directory_list(self.logic.load_backup_directories())
 
     def set_backup_directory(self):
         backup_directory = self.gui.which_directory()
@@ -373,16 +351,16 @@ class Contorller:
         if not os.path.isdir(target_directory):
             return
 
-        self.helper = saveHelper.SaveHelper(
+        self.logic = logic.Logic(
             name_format=self.target_options[self.gui.target_option_combobox.get()],
             target_dir_path=target_directory,
             backup_dir_path=backup_directory
         )
 
-        self.gui.renew_backup_directory_list(self.helper.load_backup_directories())
+        self.gui.renew_backup_directory_list(self.logic.load_backup_directories())
 
     def set_target_option(self):
-        if not self.helper:
+        if not self.logic:
             msgbox.showinfo("알림", "먼저 타겟 폴더를 설정하세요")
             self.gui.target_option_combobox.current(0)
             return
@@ -397,7 +375,7 @@ class Contorller:
         target_directory = self.gui.target_directory_path_var.get()
         backup_directory = self.gui.backup_path_var.get()
 
-        self.helper = saveHelper.SaveHelper(
+        self.logic = logic.Logic(
             name_format=name_format,
             target_dir_path=target_directory,
             backup_dir_path=backup_directory
@@ -425,23 +403,23 @@ class Contorller:
         target_directory = self.gui.target_directory_path_var.get()
         backup_directory = self.gui.backup_path_var.get()
 
-        self.helper = saveHelper.SaveHelper(
+        self.logic = logic.Logic(
             name_format=name_format,
             target_dir_path=target_directory,
             backup_dir_path=backup_directory
         )
 
     def show_target_files(self):
-        if self.helper:
+        if self.logic:
             self.gui.show_list(
-                self.helper.target_list(),
+                self.logic.target_list(),
                 "백업 대상 파일", f"\"{self.gui.target_option_combobox.get()}\"은 아래를 포함합니다.", )
         else:
             msgbox.showinfo("알림", "먼저 타겟 폴더를 설정하세요")
 
     def push_backup_button(self):
-        if self.helper:
-            self.gui.ask_for_try_backup(self.helper.target_list(), self.helper.get_auto_version_directory_name(),
+        if self.logic:
+            self.gui.ask_for_try_backup(self.logic.target_list(), self.logic.get_auto_version_directory_name(),
                                         "백업 확인", "아래의 파일들을 백업하시겠습니까?")
         else:
             msgbox.showinfo("알림", "먼저 타겟 폴더를 설정하세요")
@@ -451,35 +429,35 @@ class Contorller:
         if listbox_value:
             self.gui.ask_rollback("롤백 안내", listbox_value,
                                   os.path.basename(self.gui.target_directory_path_var.get()),
-                                  self.helper.get_auto_version_directory_name())
-        elif self.helper:
+                                  self.logic.get_auto_version_directory_name())
+        elif self.logic:
             msgbox.showinfo("알림", "목록에서 버전을 선택해주세요.")
         else:
             msgbox.showinfo("알림", "먼저 타겟 폴더를 설정하세요")
 
     def backup(self):
         self.gui.subwindow.destroy()
-        if self.helper.backup(dir_name=self.gui.version_directroy_name_var.get()):
+        if self.logic.backup(dir_name=self.gui.version_directroy_name_var.get()):
             msgbox.showinfo("성공", f"{self.gui.version_directroy_name_var.get()}에 백업을 완료하였습니다.")
         else:
             msgbox.showerror("오류", "백업을 실패하였습니다.")
 
-        self.gui.renew_backup_directory_list(self.helper.load_backup_directories())
+        self.gui.renew_backup_directory_list(self.logic.load_backup_directories())
 
     def rollback(self):
         self.gui.subwindow.destroy()
         message = f"{self.gui.target_option_combobox.get()}의 파일들을 롤백하였습니다."
         if self.gui.auto_backup_var.get():
-            if not self.helper.backup(dir_name=self.helper.get_auto_version_directory_name()):
+            if not self.logic.backup(dir_name=self.logic.get_auto_version_directory_name()):
                 msgbox.showerror("오류", "롤백 과정중 백업 실패하였습니다.")
             else:
                 message = f"백업 후 {self.gui.target_option_combobox.get()}의 파일들을 롤백하였습니다."
-        if self.helper.rollback(self.gui.backuped_dir_listbox.get(self.gui.backuped_dir_listbox.curselection()[0])):
+        if self.logic.rollback(self.gui.backuped_dir_listbox.get(self.gui.backuped_dir_listbox.curselection()[0])):
             msgbox.showinfo("성공", message)
         else:
             msgbox.showerror("오류", "롤백을 실패하였습니다.")
 
-        self.gui.renew_backup_directory_list(self.helper.load_backup_directories())
+        self.gui.renew_backup_directory_list(self.logic.load_backup_directories())
 
     def get_listbox_value(self):
         selected_idx_tuple = self.gui.backuped_dir_listbox.curselection()
@@ -494,20 +472,24 @@ class Contorller:
         if dir_name:
             if msgbox.askyesno("제거 확인", f"{dir_name}을 제거하시겠습니까?"):
                 shutil.rmtree(os.path.join(self.gui.backup_path_var.get(), dir_name))
-                self.gui.renew_backup_directory_list(self.helper.load_backup_directories())
+                self.gui.renew_backup_directory_list(self.logic.load_backup_directories())
         else:
             msgbox.showinfo("알림", "버전을 선택하세요")
 
     def open_dir(self):
-        if self.helper:
+        if self.logic:
             dir_name = self.gui.backup_dir_entry.get()
-            os.startfile(dir_name)
+            try:
+                os.startfile(dir_name)
+            except FileNotFoundError:
+                pass
         else:
             msgbox.showinfo("알림", "먼저 타겟 폴더를 설정하세요")
 
     def auto_refresh(self):
-        if self.helper:
-            self.gui.renew_backup_directory_list(self.helper.load_backup_directories())
+        if self.logic:
+            self.gui.renew_backup_directory_list(self.logic.load_backup_directories())
+
 
 if __name__ == '__main__':
     a = Gui()
