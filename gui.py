@@ -6,7 +6,6 @@ import os
 import logic
 from typing import Optional
 import tkinter.messagebox as msgbox
-from PIL import Image, ImageTk
 import shutil
 
 program_title = "Save My Save"
