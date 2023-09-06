@@ -39,6 +39,8 @@ Save-My-Save
 
 # 사용법
 
+`save_my_save.exe`를 실행한다. 
+
 ## 백업
 <img src="https://github.com/simjeehoon/src_repository/blob/master/Save-My-Save/master/main.PNG?raw=true" title="main.PNG" alt="main.PNG"></img><br/>
 
