@@ -21,10 +21,14 @@ Save-My-Save
 
 빌드 하기전에!
 ---
+
+### exe로 빌드하려면?
 * **Windows**에서 `build.bat`로 빌드 가능합니다.
 * **Python**이 깔려있어야 하며, python venv가 정상 작동해야 합니다.
+### 파이썬 인터프리터로 구동하려면?
+* 쉘에 `python gui.py`를 입력하세요.
 
-빌드하는 방법
+빌드하여 `exe` 만들기
 ---
 <img src="https://github.com/simjeehoon/src_repository/blob/master/Save-My-Save/master/1.png?raw=true" title="1.png" alt="1.png"></img><br/>
  
